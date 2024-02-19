@@ -1,0 +1,11 @@
+{
+    "package_name": "whisperToMe",
+    "cog_class_name": "WhisperToMe",
+    "config_identifier": "whisperToMe#8086",
+    "short": "Bot that converts all server voice messages to text.",
+    "description": "WhisperToMe will reply to all voice messages with a reply containing a transcription of the voice message. This cog uses the OpenAI Whisper API to convert voice to text.",
+    "install_msg": "Welcome to WhisperToMe! This cog is designed to convert speech to text using the OpenAI Whisper API. To use this cog, you will need to have an OpenAI API key. You can get one by visiting https://beta.openai.com/signup/ and signing up for the Whisper API. Once you have your API key, you can set it using the `whisperToMe set_api_key` command. Once you have your API key set, use the !start command to convert any and all voice messages from voice to text",
+    "end_user_data_statement": "This cog does not persistently store any data or metadata about users, but does access the OpenAI Whisper API to complete it's work.",
+    "authors": "Paul Jones",
+    "tags": ["Whisper", "Speech-To-Text", "Voice Messages", "OpenAI", "API", "Text", "Voice", "Transcription"]
+}
