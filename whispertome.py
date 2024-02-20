@@ -10,6 +10,7 @@ from dotenv import load_dotenv, set_key
 OPENAI_API_KEY = 'OPENAI_API_KEY'
 ISO_639_1_LANGUAGE_CODE = 'ISO_639_1_LANGUAGE_CODE'
 
+
 class WhisperToMe(commands.Cog):
     """A red discord bot cog that transcribes voice messages using the OpenAI API."""
 
