@@ -14,8 +14,9 @@ ISO_639_1_LANGUAGE_CODE = 'ISO_639_1_LANGUAGE_CODE'
 class WhisperToMe(commands.Cog):
     """A red discord bot cog that transcribes voice messages using the OpenAI API."""
 
-    def __init__(self, bot):
+    def __init__(self, bot, *args, **kwargs):
         """A cog that transcribes voice messages using the OpenAI API."""
+        super().__init__(*args, **kwargs)
         self.bot = bot
         self.language_validation_list = self._load_validation_language_dict()
         self.listening = False
@@ -121,14 +122,14 @@ class WhisperToMe(commands.Cog):
         await self._process_voice_message(message)
 
     async def _check_listening_status(self, ctx, status):
-        """Checks if the bot's current listening status matches the desired status."""
+        """Checks if the bots current listening status matches the desired status."""
         if self.listening == status:
             await ctx.send(f"I'm already {'listening' if status else 'not listening'} to messages.\nCommand ignored.")
             return True
         return False
 
     async def _toggle_listening(self, status, ctx):
-        """Toggles the bot's listening status and notifies the user."""
+        """Toggles the bots listening status and notifies the user."""
         self.listening = status
         status_string = "Started" if status else "Stopped"
         await ctx.send(f"{status_string} listening to all messages.")
@@ -155,7 +156,7 @@ class WhisperToMe(commands.Cog):
         """Sets the language for transcriptions."""
         lowercase_lang_code = lang_code.lower()
         if lowercase_lang_code in self.language_validation_list:
-            # os.putenv only works for the current process, so we need to use set_key from the dotenv library
+            # os.putenv() only works for the current process, so we need to use set_key from the dotenv library
             set_key(".env", "ISO_639_1_LANGUAGE_CODE", lowercase_lang_code)
             self.lang_code = lowercase_lang_code
             await ctx.send(f"Language set to {lang_code}.\nUse the `!start` command to begin listening!")
