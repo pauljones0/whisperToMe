@@ -7,11 +7,14 @@ import os
 import json
 from dotenv import load_dotenv, set_key
 
+OPENAI_API_KEY = 'OPENAI_API_KEY'
+ISO_639_1_LANGUAGE_CODE = 'ISO_639_1_LANGUAGE_CODE'
 
 class WhisperToMe(commands.Cog):
-    """Listen to incoming voice messages and respond with a transcription."""
+    """A red discord bot cog that transcribes voice messages using the OpenAI API."""
 
     def __init__(self, bot):
+        """A cog that transcribes voice messages using the OpenAI API."""
         self.bot = bot
         self.language_validation_list = self._load_validation_language_dict()
         self.listening = False
@@ -19,24 +22,26 @@ class WhisperToMe(commands.Cog):
         self.client = self._load_open_ai_client()
 
     def _load_validation_language_dict(self):
+        """Loads a dictionary of ISO-639-1 language codes from a JSON file."""
         with open('ISO-639-1-language.json', 'r') as f:
             languages = json.load(f)
         return {language['code']: language['name'] for language in languages}
 
     def _load_env_vars(self):
-        """Load environment variables."""
+        """Loads OpenAI API key and language code from environment variables."""
         load_dotenv()
-        self.api_key = os.getenv("OPENAI_API_KEY", '')
-        self.lang_code = os.getenv("ISO_639_1_LANGUAGE_CODE", 'en')
+        self.api_key = os.getenv(OPENAI_API_KEY, '')
+        self.lang_code = os.getenv(ISO_639_1_LANGUAGE_CODE, 'en')
 
     def _load_open_ai_client(self):
+        """Initializes an OpenAI client with the API key."""
         if not self.api_key:
-            raise ValueError("OPENAI_API_KEY is not set in the environment variables.")
+            raise ValueError(f"{OPENAI_API_KEY} is not set in the environment variables.")
         else:
             return OpenAI(api_key=self.api_key)
 
     async def _validate_api_key(self, ctx, client):
-        """Validate the API key and provide detailed error messages."""
+        """Validates the OpenAI API key and checks access to the 'whisper-1' model."""
         try:
             models = client.models.list().data
         except Exception as e:
@@ -52,6 +57,7 @@ class WhisperToMe(commands.Cog):
             return False
 
     async def _validate_lang_code(self, ctx, lang_code):
+        """Validates the ISO-639-1 language code."""
         if lang_code in self.language_validation_list:
             return True
         else:
@@ -59,7 +65,7 @@ class WhisperToMe(commands.Cog):
             return False
 
     async def _validate_env_vars(self, ctx):
-        """Validate environment variables and provide detailed error messages."""
+        """Validates the OpenAI API key and the ISO-639-1 language code."""
         valid_lang_code = await self._validate_lang_code(ctx, self.lang_code)
         valid_api_key = await self._validate_api_key(ctx, self.client)
         if not valid_lang_code:
@@ -73,19 +79,27 @@ class WhisperToMe(commands.Cog):
         return True
 
     async def _should_ignore_message(self, message):
+        """Determines if a message should be ignored based on certain conditions."""
         return not self.listening or message.author.bot or not message.flags.voice
 
     async def _process_voice_message(self, message):
+        """Processes a voice message by transcribing it using the OpenAI API."""
+
         try:
-            with tempfile.NamedTemporaryFile(suffix=".ogg", delete=True) as temp_file:
-                # voice messages only have a single attachment, containing the ogg file
-                await message.attachments[0].save(fp=pathlib.WindowsPath(tempfile.gettempdir()+temp_file.name))
-                transcript = self._transcribe_voice_message(temp_file)
-                await message.reply(transcript.text)
+            fd, path = tempfile.mkstemp(suffix=".ogg")
+            try:
+                with os.fdopen(fd, 'wb') as tmp:
+                    await message.attachments[0].save(fp=pathlib.Path(path))
+                with open(path, 'rb') as file:
+                    transcript = self._transcribe_voice_message(file)
+                    await message.reply(transcript.text)
+            finally:
+                os.remove(path)
         except Exception as e:
             await message.channel.send(f"Error processing voice message:\n{str(e)}")
 
     def _transcribe_voice_message(self, temp_file):
+        """Transcribes a voice message using the OpenAI API."""
         with open(temp_file.name, "rb") as file:
             return self.client.audio.transcriptions.create(file=file, model="whisper-1",
                                                            language=self.lang_code,
@@ -93,18 +107,22 @@ class WhisperToMe(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if await self._should_ignore_message(message):
+        """Processes incoming messages if they meet certain criteria."""
+        should_ignore = await self._should_ignore_message(message)
+        if should_ignore:
             return
 
         await self._process_voice_message(message)
 
     async def _check_listening_status(self, ctx, status):
+        """Checks if the bot's current listening status matches the desired status."""
         if self.listening == status:
             await ctx.send(f"I'm already {'listening' if status else 'not listening'} to messages.\nCommand ignored.")
             return True
         return False
 
     async def _toggle_listening(self, status, ctx):
+        """Toggles the bot's listening status and notifies the user."""
         self.listening = status
         status_string = "Started" if status else "Stopped"
         await ctx.send(f"{status_string} listening to all messages.")
@@ -128,7 +146,7 @@ class WhisperToMe(commands.Cog):
     @commands.admin()
     @commands.command()
     async def set_lang(self, ctx, lang_code: str):
-        """Set the transcript language to ISO-639-1 language code."""
+        """Sets the language for transcriptions."""
         lowercase_lang_code = lang_code.lower()
         if lowercase_lang_code in self.language_validation_list:
             # os.putenv only works for the current process, so we need to use set_key from the dotenv library
@@ -141,7 +159,7 @@ class WhisperToMe(commands.Cog):
     @commands.admin()
     @commands.command()
     async def set_api_key(self, ctx, key: str):
-        """Set the OpenAI API key to use for transcriptions."""
+        """Sets the OpenAI API key for transcriptions."""
         valid_api_key = await self._validate_api_key(ctx, OpenAI(api_key=key))
         if valid_api_key:
             set_key(".env", "OPENAI_API_KEY", key)
@@ -149,4 +167,3 @@ class WhisperToMe(commands.Cog):
             await ctx.send("API key set.\nUse the `!start` command to begin listening!")
         else:
             await ctx.send("API key not set due to errors.\nPlease try again.")
-
