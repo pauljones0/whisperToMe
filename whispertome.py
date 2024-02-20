@@ -19,6 +19,8 @@ class WhisperToMe(commands.Cog):
         self.bot = bot
         self.language_validation_list = self._load_validation_language_dict()
         self.listening = False
+        self.lang_code = None
+        self.api_key = None
         self._load_env_vars()
         self.client = self._load_open_ai_client()
 
@@ -65,17 +67,20 @@ class WhisperToMe(commands.Cog):
             await ctx.send(f"Invalid language code {lang_code} in the environment variables.")
             return False
 
+    def _generate_error_message(self, entity, command):
+        """Generates an error message for invalid environment variables."""
+        return (f"{entity} is not set or is invalid.\nPlease use the command `{command}` to set the {entity.lower()}" +
+                "before calling `!start` again.")
+
     async def _validate_env_vars(self, ctx):
         """Validates the OpenAI API key and the ISO-639-1 language code."""
         valid_lang_code = await self._validate_lang_code(ctx, self.lang_code)
         valid_api_key = await self._validate_api_key(ctx, self.client)
         if not valid_lang_code:
-            await ctx.send("Language code is not set or is invalid.\nPlease set a valid language code before calling "
-                           "`!start` again.")
+            await ctx.send(self._generate_error_message("Language code", "!set_lang <language code>"))
             return False
         if not valid_api_key:
-            await ctx.send("API key is not set or is invalid.\nPlease set a valid API key before calling `!start` "
-                           "again.")
+            await ctx.send(self._generate_error_message("API key", "!set_api_key <OpenAI api key>"))
             return False
         return True
 
@@ -89,7 +94,7 @@ class WhisperToMe(commands.Cog):
         try:
             fd, path = tempfile.mkstemp(suffix=".ogg")
             try:
-                with os.fdopen(fd, 'wb') as tmp:
+                with os.fdopen(fd, 'wb') as _:
                     await message.attachments[0].save(fp=pathlib.Path(path))
                 with open(path, 'rb') as file:
                     transcript = self._transcribe_voice_message(file)
